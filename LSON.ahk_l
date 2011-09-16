@@ -10,7 +10,7 @@
 ; /4k     refers to the root's fourth index *key* (object-key)
 ; /1/5k/3 refers to: root first index value -> fifth index key -> third index value
 
-LSON( obj, seps="", lobj = "", tpos = "" ) {
+LSON( obj, seps := "", lobj := "", tpos := "" ) {
     array := True
     
     tpos .= "/"
@@ -34,7 +34,7 @@ LSON( obj, seps="", lobj = "", tpos = "" ) {
                     retObj .= LSON(k, seps.clone(), lobj, tpos A_Index "k")
             }
         else
-            retObj .= (k ~= "^[a-zA-Z0-9#_@$]+$" ? k : """" RegExReplace(k,"""","$0$0") """")
+            retObj .= (k ~= "^[a-zA-Z0-9#_@$]+$" ? k : "`"" RegExReplace(k,"`"","$0$0") "`"")
         retObj .= ": "
         
         if IsObject(v)
@@ -52,7 +52,7 @@ LSON( obj, seps="", lobj = "", tpos = "" ) {
             if (v ~= "[^\x01-\x7F]") ;contains non-ascii characters
                 v := v ; this should hex-ify v based on GetCapacity()
             else
-                v := v+0 != "" ? v : """" RegExReplace(v,"""","$0$0") """"
+                v := v+0 != "" ? v : "`"" RegExReplace(v,"`"","$0$0") "`""
         
         retObj .= v
         
@@ -64,6 +64,11 @@ LSON( obj, seps="", lobj = "", tpos = "" ) {
     else
         ret := "{" SubStr(retObj, 1 + StrLen(sep)) "}"
     return ret
+}
+
+LSON_Normalize(text) 
+{
+    
 }
 
 myobj := ["someobject", 1, 7]
