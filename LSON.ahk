@@ -1,0 +1,89 @@
+; self references (tree) syntax: 
+;   / is root object
+;   sub objects referenced by index
+;   if reference ends with "k" it is the key-object at that index
+;   each nest level adds another "/"
+;
+; e.g.
+; /       refers to root itself
+; /2      refers to the root's second index value
+; /4k     refers to the root's fourth index *key* (object-key)
+; /1/5k/3 refers to: root first index value -> fifth index key -> third index value
+
+LSON( obj_text, seps = "" )
+{
+    return IsObject(obj_text) ? LSON_Serialize(obj_text, seps) : LSON_Unserialize(obj_text)
+}
+
+LSON_Unserialize( text ) 
+{
+    
+}
+
+LSON_Serialize( obj, seps = "", lobj = "", tpos = "" ) 
+{
+    array := True
+    
+    tpos .= "/"
+    if !IsObject(lobj)
+        lobj := Object("r" &obj, tpos) ; this root object is static through all recursion
+    sep := seps._maxindex() ? seps.remove(1) : ", "
+    
+    for k,v in obj
+    {
+        retObj .= sep
+        
+        if IsObject(k)
+            retObj .= LSON_SerializeObj(k, seps.clone(), lobj, tpos A_Index "k")
+        else
+            retObj .= k ~= "^[a-zA-Z0-9#_@$]+$" ? k : LSON_Normalize(k)
+        retObj .= ": "
+        
+        if IsObject(v)
+            v := LSON_SerializeObj(v, seps.clone(), lobj, tpos A_Index)
+        else
+            if (v ~= "[^\x01-\x7F]") ;contains non-ascii characters
+                v := v ; this should hex-ify v based on GetCapacity()
+            else
+                v := v+0 != "" ? v : LSON_Normalize(v)
+        
+        retObj .= v
+        
+        if (array := array && (k + 0 != "") && (k == A_Index) && (k == Abs(k)) && (k == Floor(k)))
+            retArr .= sep v
+    }
+    if array
+        ret := "[" SubStr(retArr, 1 + StrLen(sep)) "]"
+    else
+        ret := "{" SubStr(retObj, 1 + StrLen(sep)) "}"
+    return ret
+}
+
+LSON_SerializeObj( obj, seps, lobj, tpos ) 
+{
+    if (lobj.HasKey("r" &obj))
+        return lobj["r" &obj]
+    lobj.insert("r" &obj, tpos)
+    return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, seps.clone(), lobj, tpos)
+}
+
+LSON_Normalize(text) 
+{
+    text := RegExReplace(text,"``","````")
+    text := RegExReplace(text,"`%","```%")
+    text := RegExReplace(text,"`r","``r")
+    text := RegExReplace(text,"`n","``n")
+    text := RegExReplace(text,"`t","``t")
+    while RegExMatch(text, "[\x0-\x19]", char) ; change control characters
+        text := RegExReplace(text, char, "``x" Format("{1:02X}", asc(char)))
+    return """" text """"
+}
+
+LSON_UnNormalize(text)
+{
+    text := SubStr(text, 2, -1) ;strip quotes
+    while RegExMatch(text, "(?<!``)(````)*+``x(..)", char)
+        text := RegExReplace(text, "(?<!``)(````)*+``x" char2, "$1" Chr("0x" char2))
+    Transform, text, Deref, %text%
+    return text
+}
