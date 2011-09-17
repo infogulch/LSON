@@ -59,7 +59,8 @@ LSON_Serialize( obj, seps := "", lobj := "", tpos := "" )
     return ret
 }
 
-LSON_SerializeObj( obj, seps, lobj, tpos ) {
+LSON_SerializeObj( obj, seps, lobj, tpos ) 
+{
     if (lobj.HasKey("r" &obj))
         return lobj["r" &obj]
     lobj.insert("r" &obj, tpos)
