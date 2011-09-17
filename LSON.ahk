@@ -15,12 +15,7 @@ LSON( obj_text, seps := "" )
     return IsObject(obj_text) ? LSON_Serialize(obj_text, seps) : LSON_Unserialize(obj_text)
 }
 
-LSON_Unserialize( text ) 
-{
-    
-}
-
-LSON_Serialize( obj, seps := "", lobj := "", tpos := "" ) 
+LSON_Serialize( obj, seps := "", lobj := "", tpos := "" )
 {
     array := True
     
@@ -34,13 +29,13 @@ LSON_Serialize( obj, seps := "", lobj := "", tpos := "" )
         retObj .= sep
         
         if IsObject(k)
-            retObj .= LSON_SerializeObj(k, seps.clone(), lobj, tpos A_Index "k")
+            retObj .= LSON_GetObj(k, seps.clone(), lobj, tpos A_Index "k")
         else
             retObj .= k ~= "^[a-zA-Z0-9#_@$]+$" ? k : LSON_Normalize(k)
         retObj .= ": "
         
         if IsObject(v)
-            v := LSON_SerializeObj(v, seps.clone(), lobj, tpos A_Index)
+            v := LSON_GetObj(v, seps.clone(), lobj, tpos A_Index)
         else
             if (v ~= "[^\x01-\x7F]") ;contains non-ascii characters
                 v := v ; this should hex-ify v based on GetCapacity()
@@ -59,12 +54,17 @@ LSON_Serialize( obj, seps := "", lobj := "", tpos := "" )
     return ret
 }
 
-LSON_SerializeObj( obj, seps, lobj, tpos ) 
+LSON_GetObj( obj, seps, lobj, tpos ) 
 {
     if (lobj.HasKey("r" &obj))
         return lobj["r" &obj]
     lobj.insert("r" &obj, tpos)
     return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, seps.clone(), lobj, tpos)
+}
+
+LSON_Unserialize( text ) 
+{
+    
 }
 
 LSON_Normalize(text) 
