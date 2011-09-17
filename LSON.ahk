@@ -42,10 +42,7 @@ LSON_Serialize( obj, seps = "", lobj = "", tpos = "" )
         if IsObject(v)
             v := LSON_SerializeObj(v, seps.clone(), lobj, tpos A_Index)
         else
-            if (v ~= "[^\x01-\x7F]") ;contains non-ascii characters
-                v := v ; this should hex-ify v based on GetCapacity()
-            else
-                v := v+0 != "" ? v : LSON_Normalize(v)
+            v := v+0 != "" ? v : LSON_Normalize(v)
         
         retObj .= v
         
@@ -86,4 +83,25 @@ LSON_UnNormalize(text)
         text := RegExReplace(text, "(?<!``)(````)*+``x" char2, "$1" Chr("0x" char2))
     Transform, text, Deref, %text%
     return text
+}
+
+LSON_BinToString(obj, k, len = "")
+{
+    vsz := len ? len*(1+A_IsUnicode) : obj.GetCapacity(k)
+    vp  := obj.GetAddress(k)
+    VarSetCapacity(outsz, 4, 0)
+    DllCall("Crypt32.dll\CryptBinaryToString", "ptr", vp, "uint", vsz, "uint", 0xC, "ptr", 0   , "ptr", &outsz, "CDECL uint")
+    NumGet(outsz)
+    VarSetCapacity(out, NumGet(outsz)*(1+A_IsUnicode), 0)
+    DllCall("Crypt32.dll\CryptBinaryToString", "ptr", vp, "uint", vsz, "uint", 0xC, "ptr", &out, "ptr", &outsz, "CDECL uint")
+    return out
+}
+
+LSON_StringToBin(str, obj, k)
+{
+    VarSetCapacity(sz, 4)
+    DllCall("Crypt32.dll\CryptStringToBinary", "ptr", &str, "UInt", 0, "UInt", 0xC, "ptr",  0, "ptr", &sz, "ptr", 0, "ptr", 0, "CDecl")
+    obj.SetCapacity(k, NumGet(sz))
+    pk := obj.GetAddress(k)
+    DllCall("Crypt32.dll\CryptStringToBinary", "ptr", &str, "UInt", 0, "UInt", 0xC, "ptr", pk, "ptr", &sz, "ptr", 0, "ptr", 0, "CDecl")
 }
