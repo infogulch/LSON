@@ -31,7 +31,7 @@ LSON_Serialize( obj, seps := "", lobj := "", tpos := "" )
         if IsObject(k)
             retObj .= LSON_GetObj(k, seps.clone(), lobj, tpos A_Index "k")
         else
-            retObj .= k ~= "^[a-zA-Z0-9#_@$]+$" ? k : LSON_Normalize(k)
+            retObj .= k ~= "^[\w#@$]+$" ? k : LSON_Normalize(k)
         retObj .= ": "
         
         if IsObject(v)
@@ -59,14 +59,38 @@ LSON_GetObj( obj, seps, lobj, tpos )
     return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, seps.clone(), lobj, tpos)
 }
 
-LSON_Unserialize( text ) 
+LSON_Unserialize( text, tree := "" ) 
 {
+    static tk := "(?(DEFINE)(?<tk>\s*(?:"                  
+              .  "[\w#@$]+(?:\(\))?"                                           ; identifier, possibly function
+              .  "|(?:\d+(?:\.\d+)?|0x[\da-fA-F]+)"                            ; number
+              .  "|(['`"])(?:(?:(?!\g-1|``).)|``.)*\g-1"                       ; string with ` escaped quotes
+              ; .  """(?:[^""]|"""")"""                                          ; string with quote-escaped quotes
+              .  "|/(?:\d+k?(?:/\d+k?)*)?"                                     ; reference
+              .  "|(?<object>"                                                 ; both objects
+                  .  "(?<obj>\{(?<objc>(?&tk):(?&tk)(?:,(?&tk):(?&tk))*)?\})"  ; key-value object
+                  .  "|(?<arr>\[(?<arrc>(?&tk)(?:,(?&tk))*)?\])"               ; array
+              .  ")"
+              .  ")\s*))"
+    ret := Object()
     
+    if !IsObject(tree)
+    {
+        tree := { "/": &ret }
+        if !RegExMatch(text, tk "^(?&object)$")
+            throw Exception("LSON could not be parsed")
+    }
+    
+    p := 1, l := 0
+    while p := RegExMatch(text, tk "", out, p+l)
+        p := 0
 }
 
 LSON_Normalize(text) 
 {
     text := RegExReplace(text,"``","````")
+    text := RegExReplace(text,"`"","```"")
+    ; text := RegExReplace(text,"""","""""")
     text := RegExReplace(text,"`%","```%")
     text := RegExReplace(text,"`r","``r")
     text := RegExReplace(text,"`n","``n")
@@ -85,7 +109,7 @@ LSON_UnNormalize(text)
     return text
 }
 
-LSON_BinToString(obj, k, len = "")
+LSON_BinToString(obj, k, len := "")
 {
     vsz := len ? len*(1+A_IsUnicode) : obj.GetCapacity(k)
     vp  := obj.GetAddress(k)

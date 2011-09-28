@@ -1,8 +1,18 @@
-
 #Include LSON.ahk
 
 myobj := ["someobject", 1, 7]
-dispobj := { 123: [4, 5, 6], test: "this is `"text`"", "testing foobar": "abc def", reference: myobj }
+superobj :=  { 123: [4, 5, 6], test: "this is `"text`"", "testing foobar": "abc def", reference: myobj }
+superobj.insert(myobj, "object key value")
+
+msgbox % supertxt := LSON(superobj)
+
+msgbox % LSON(SubStr(supertxt, 2)) "`n" ErrorLevel
+
+exitapp
+
+/*
+myobj := ["someobject", 1, 7]
+dispobj := { 123: [4, 5, 6], myobj: "object key value", test: "this is `"text`"", "testing foobar": "abc def", reference: myobj }
 dispobj.insert(myobj, "object key value")
 msgbox % LSON( dispobj )
 
@@ -21,3 +31,18 @@ myfunc() {
 
 superobj := {test: "abc", "s p a c e s": ["  "], empty: []}
 msgbox % LSON(superobj)
+
+
+/* Results:
+
+{123: [4, 5, 6], ["someobject", 1, 7]: "object key value", reference: /2k, test: "this is "text"", "testing foobar": "abc def"}
+
+{_me: "parent", child: {_me: "child", parent: /}}
+
+{_me: "child", parent: {_me: "parent", child: /}}
+
+{help: myfunc(), self: /}
+
+{empty: [], "s p a c e s": ["  "], test: "abc"}
+
+*/
