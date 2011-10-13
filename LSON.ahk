@@ -59,7 +59,7 @@ LSON_GetObj( obj, seps, lobj, tpos )
     return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, seps.clone(), lobj, tpos)
 }
 
-LSON_Unserialize( text, tree := "" ) 
+LSON_Unserialize( text, tree := "", tpos := "/" ) 
 {
     static tk := "(?(DEFINE)(?<tk>\s*(?:"                  
               .  "[\w#@$]+(?:\(\))?"                                           ; identifier, possibly function
@@ -76,14 +76,20 @@ LSON_Unserialize( text, tree := "" )
     
     if !IsObject(tree)
     {
-        tree := { "/": &ret }
+        tree := []
         if !RegExMatch(text, tk "^(?&object)$")
             throw Exception("LSON could not be parsed")
     }
     
-    p := 1, l := 0
-    while p := RegExMatch(text, tk "", out, p+l)
-        p := 0
+    tree.insert(tpos, &ret)
+    
+    p := 0, l := 0
+    while p := RegExMatch(text, tk "", out, p+l+1)
+    {
+        l := StrLen(out)
+        if StrLen(outObject) > 0
+            LSON_Unserialize( outObject, tree, tpos )
+    }
 }
 
 LSON_Normalize(text) 
