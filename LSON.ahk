@@ -59,9 +59,83 @@ LSON_GetObj( obj, seps, lobj, tpos )
     return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, seps.clone(), lobj, tpos)
 }
 
-LSON_Unserialize( text ) 
+LSON_Unserialize( _text ) 
 {
+    tree := []
+    stack := []
+    _text := RegExReplace(_text, "^\s++") ; remove leading whitespace
+    pos := 1
     
+    ret := Object()
+    
+    this := { objtype: SubStr(text, 1, 1), tpos: "/", ref: ret, idx: 0, key: "", next: ("value" OR "key") }
+    stack.insert(1, this)
+    tree.insert(stack[1,"tpos"], &stack[1,"ref"])
+    
+    while stack.maxindex() && ++pos <= StrLen(_text)
+    {
+        c := SubStr(_text, pos, 1)
+        if InStr(" `t`r`n", c) ;whitespace
+            continue
+        
+        text := SubStr(_text, pos)
+        this.idx++
+        
+        if RegExMatch(text, "^""(?:[^""]|"""")++""", token) ;string
+            pos += StrLen(token), tokentype := "string"
+        else if RegExMatch(text, "^\d++(?:\.\d++)?|0x[\da-fA-F]++", token) ; number
+            pos += StrLen(token), tokentype := "number"
+        else if RegExmatch(text, "^[\w#@$]++(?:\(\))?", token) ;identifier
+            pos += Strlen(token), tokentype := "identifier"
+        ; else if ;object reference
+        else if InStr("[{", c)
+        {
+            tokentype := "object"
+            new_this := { objtype: c, tpos: "/", ref: Object(), idx: 0, key: "" }
+            
+            continue
+        }
+        else
+            throw Expected token, got: "%c%"
+        
+        if (this.objtype = "[")
+            this.ref[this.idx] := token
+        else if (this.next = "key")
+            this.key := token
+        else
+            this.ref[this.key] := token
+        
+        while InStr(" `t`r`n", SubStr(text, pos+1, 1) ;trim whitespace after token
+            pos++
+        
+        c := SubStr(_text, pos, 1)
+        pos++
+        
+        if (this.objtype = "[")
+            if (c = ",")
+                continue
+            if (c = "]")
+            {
+                stack.remove()
+                continue
+            }
+            else
+                throw unexpected character
+        else
+            if (this.next = "value" ? c = "," : c = ":")
+            {
+                this.next := this.next = "value" ? "key" : "value"
+                continue
+            }
+            else if (this.next = "value" && c = "}")
+            {
+                stack.remove()
+                continue
+            }
+            else
+                throw unexpected character
+    }
+    return token
 }
 
 LSON_Normalize(text) 
@@ -85,6 +159,7 @@ LSON_UnNormalize(text)
     return text
 }
 
+; These will not be used until a reliable method of determining whether an object contains binary data is found
 LSON_BinToString(obj, k, len = "")
 {
     vsz := len ? len*(1+A_IsUnicode) : obj.GetCapacity(k)
