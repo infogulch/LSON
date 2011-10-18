@@ -66,10 +66,10 @@ LSON_Unserialize( text, tree := "", tpos := "/" )
               .  "|(?:\d+(?:\.\d+)?|0x[\da-fA-F]+)"                            ; number
               .  "|(['`"])(?:(?:(?!\g-1|``).)|``.)*\g-1"                       ; string with ` escaped quotes
               ; .  """(?:[^""]|"""")"""                                          ; string with quote-escaped quotes
-              .  "|/(?:\d+k?(?:/\d+k?)*)?"                                     ; reference
+              .  "|(?:/\d+k?)+"                                                ; reference
               .  "|(?<object>"                                                 ; both objects
-                  .  "(?<obj>\{(?<objc>(?&tk):(?&tk)(?:,(?&tk):(?&tk))*)?\})"  ; key-value object
-                  .  "|(?<arr>\[(?<arrc>(?&tk)(?:,(?&tk))*)?\])"               ; array
+                  .  "(?<obj>\{(?:(?&tk):(?&tk)(?:,(?!\s*\})|(?=\})))*\})"  ; key-value object
+                  .  "|(?<arr>\[(?&tk)(?:,(?&tk))*\])"               ; array
               .  ")"
               .  ")\s*))"
     ret := Object()
@@ -97,7 +97,7 @@ LSON_Normalize(text)
     text := RegExReplace(text,"``","````")
     text := RegExReplace(text,"`"","```"")
     ; text := RegExReplace(text,"""","""""")
-    text := RegExReplace(text,"`%","```%")
+    text := RegExReplace(text,"%" ,"``%")
     text := RegExReplace(text,"`r","``r")
     text := RegExReplace(text,"`n","``n")
     text := RegExReplace(text,"`t","``t")
@@ -115,6 +115,8 @@ LSON_UnNormalize(text)
     return text
 }
 
+
+; These may be used in the future for binary data stored in objects
 LSON_BinToString(obj, k, len := "")
 {
     vsz := len ? len*(1+A_IsUnicode) : obj.GetCapacity(k)
