@@ -66,10 +66,17 @@ LSON_Unserialize( _text )
     _text := RegExReplace(_text, "^\s++") ; remove leading whitespace
     pos := 1
     
-    ret := Object()
+    c := SubStr(_text, 1, 1)
+    if !InStr("[{",c)
+        throw non-object 
     
-    this := { objtype: SubStr(text, 1, 1), tpos: "/", ref: ret, idx: 0, key: "", next: ("value" OR "key") }
-    stack.insert(1, this)
+    ret  := { type: c = "[" ? "arr" : "obj"
+            , tpos: "/"
+            , ref: Object()
+            , idx: 0
+            , key: ""
+            , mode: c = "[" ? "value" : "key" }
+    stack.insert(this)
     tree.insert(stack[1,"tpos"], &stack[1,"ref"])
     
     while stack.maxindex() && ++pos <= StrLen(_text)
@@ -79,63 +86,73 @@ LSON_Unserialize( _text )
             continue
         
         text := SubStr(_text, pos)
+        this := stack[stack.maxindex()]
         this.idx++
         
-        if RegExMatch(text, "^""(?:[^""]|"""")++""", token) ;string
+        if RegExMatch(text, "^""(?:[^""]|"""")++""", token) ;string. TODO: deref, de-quote token string
             pos += StrLen(token), tokentype := "string"
-        else if RegExMatch(text, "^\d++(?:\.\d++)?|0x[\da-fA-F]++", token) ; number
+        else if RegExMatch(text, "^\d++(?:\.\d++)?|0x[\da-fA-F]++", token) ; number. TODO: e-style numbers
             pos += StrLen(token), tokentype := "number"
-        else if RegExmatch(text, "^[\w#@$]++(?:\(\))?", token) ;identifier
+        else if RegExmatch(text, "^[\w#@$]++(?:\(\))?", token) ;identifier/function
             pos += Strlen(token), tokentype := "identifier"
         ; else if ;object reference
         else if InStr("[{", c)
         {
+            new_this := { type: c = "[" ? "arr" : "obj"
+                        , tpos: (this.tpos!="/"?"/":"") this.idx (this.mode="key"?"k":"")
+                        , ref: Object()
+                        , idx: 0
+                        , key: ""
+                        , mode: c = "[" ? "value" : "key" }
+            token := new_this.ref
             tokentype := "object"
-            new_this := { objtype: c, tpos: "/", ref: Object(), idx: 0, key: "" }
-            
-            continue
+            tree.insert(new_this.tpos, new_this.ref)
+            stack.insert(new_this)
+            pos++
         }
         else
             throw Expected token, got: "%c%"
         
-        if (this.objtype = "[")
+        if (this.type = "arr")
             this.ref[this.idx] := token
-        else if (this.next = "key")
+        else if (this.mode = "key")
             this.key := token
         else
-            this.ref[this.key] := token
+            this.ref[this.key] := token, this.key := ""
         
-        while InStr(" `t`r`n", SubStr(text, pos+1, 1) ;trim whitespace after token
+        while InStr(" `t`r`n", SubStr(text, pos, 1)) ;trim whitespace after token
             pos++
+            
+        if (tokentype = "object")
+            continue
         
         c := SubStr(_text, pos, 1)
         pos++
         
-        if (this.objtype = "[")
-            if (c = ",")
-                continue
+        if (this.type = "arr")
             if (c = "]")
-            {
-                stack.remove()
-                continue
-            }
-            else
-                throw unexpected character
+                this.mode := "end"
+            else if (c != ",")
+                throw unexpected character: "%c%"
         else
-            if (this.next = "value" ? c = "," : c = ":")
-            {
-                this.next := this.next = "value" ? "key" : "value"
-                continue
-            }
-            else if (this.next = "value" && c = "}")
-            {
-                stack.remove()
-                continue
-            }
+            if (this.mode = "value" ? c = "," : c = ":")
+                this.mode := this.mode = "value" ? "key" : "value"
+            else if (this.mode = "value" && c = "}")
+                this.mode := "end"
             else
-                throw unexpected character
+                throw unexpected character: "%c%"
+        
+        if (this.mode = "end")
+        {
+            stack.remove()
+            if stack.maxindex()
+            {
+                this := stack[stack.maxindex()]
+                this.ref[this.type="arr"?this.idx:this.mode="key"?"key":this.key] := token
+            }
+        }
     }
-    return token
+    return ret.ref
 }
 
 LSON_Normalize(text) 
@@ -152,7 +169,7 @@ LSON_Normalize(text)
 
 LSON_UnNormalize(text)
 {
-    text := SubStr(text, 2, -1) ;strip quotes
+    text := SubStr(text, 2, -1) ;strip outside quotes
     while RegExMatch(text, "(?<!``)(````)*+``x(..)", char)
         text := RegExReplace(text, "(?<!``)(````)*+``x" char2, "$1" Chr("0x" char2))
     Transform, text, Deref, %text%
