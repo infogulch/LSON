@@ -68,7 +68,7 @@ LSON_Unserialize( _text )
     
     c := SubStr(_text, 1, 1)
     if !InStr("[{",c)
-        throw non-object 
+        throw "object not recognized"
     
     ret  := { type: c = "[" ? "arr" : "obj"
             , tpos: "/"
@@ -77,7 +77,7 @@ LSON_Unserialize( _text )
             , key: ""
             , mode: c = "[" ? "value" : "key" }
     stack.insert(ret)
-    tree.insert(stack[1,"tpos"], &stack[1].ref)
+    tree.insert(stack[1].tpos, &stack[1].ref)
     
     while stack.maxindex() && ++pos <= StrLen(_text)
     {
@@ -89,13 +89,24 @@ LSON_Unserialize( _text )
         this := stack[stack.maxindex()]
         this.idx++
         
-        if RegExMatch(text, "^""(?:[^""]|"""")+""", token) ;string. TODO: deref, de-quote token string
+        if RegExMatch(text, "^""(?:[^""]|"""")+""", token) ;string
             pos += StrLen(token), token := LSON_UnNormalize(token), tokentype := "string"
-        else if RegExMatch(text, "^\d++(?:\.\d++)?|0x[\da-fA-F]++", token) ; number. TODO: e-style numbers
-            pos += StrLen(token), tokentype := "number"
-        else if RegExmatch(text, "^[\w#@$]++(?:\(\))?", token) ;identifier/function. TODO: deref function objects
-            pos += Strlen(token), tokentype := "identifier"
-        ; else if ;object reference
+        else if RegExMatch(text, "^\d++(?:\.\d++(?:e[\+\-]?\d++)?)?|0x[\da-fA-F]++", token) ; number
+            pos += StrLen(token), token += 0, tokentype := "number"
+        else if (this.mode = "key") && RegExmatch(text, "^[\w#@$]++", token) ;identifier
+            pos += StrLen(token), tokentype := "identifier"
+        else if RegExMatch(text, "^(?!\.)[\w#@$\.](?<!\.)(?=\(\))", token) { ;function
+            pos += StrLen(token)+2, tokentype := "function"
+            if !IsFunc(token)
+                throw "Function not found: " token "()"
+            token := Func(token)
+        }
+        else if RegExMatch(text, "^(?:/\d+k?+)++", token) { ; self-reference
+            pos += StrLen(token), tokentype := "reference"
+            if !tree.HasKey(token)
+                throw "backreference doesn't exist: " token
+            token := tree[token]
+        }
         else if InStr("[{", c)
         {
             new_this := { type: c = "[" ? "arr" : "obj"
@@ -120,7 +131,7 @@ LSON_Unserialize( _text )
             this.ref[this.key] := token, this.key := ""
         
         while pos < StrLen(_text) && InStr(" `t`r`n", SubStr(_text, pos, 1)) ;trim whitespace after token
-            msgbox % "trimming whitespace " ++pos
+            ++pos
         
         if (tokentype = "object")
             continue
@@ -133,7 +144,7 @@ LSON_Unserialize( _text )
             if (c = "]")
                 this.mode := "end"
             else if (c != ",")
-                throw "unexpected character in array: '" c "'"
+                throw "Expected array separator/termination, got: '" c "'"
         }
         else
             if (this.mode = "value" ? c = "," : c = ":")
