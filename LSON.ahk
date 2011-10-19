@@ -98,13 +98,13 @@ LSON_Unserialize( _text )
         else if RegExMatch(text, "^(?!\.)[\w#@$\.](?<!\.)(?=\(\))", token) { ;function
             pos += StrLen(token)+2, tokentype := "function"
             if !IsFunc(token)
-                throw "Function not found: " token "()"
+                throw "Function not found: " token "() at position " (pos-StrLen(token)-2)
             token := Func(token)
         }
         else if RegExMatch(text, "^(?:/\d+k?+)++", token) { ; self-reference
             pos += StrLen(token), tokentype := "reference"
             if !tree.HasKey(token)
-                throw "backreference doesn't exist: " token
+                throw "Self-reference not found: " token " at position " (pos-StrLen(token))
             token := tree[token]
         }
         else if InStr("[{", c)
@@ -144,7 +144,7 @@ LSON_Unserialize( _text )
             if (c = "]")
                 this.mode := "end"
             else if (c != ",")
-                throw "Expected array separator/termination, got: '" c "'"
+                throw "Expected array separator/termination, got: '" c  "' at position " pos
         }
         else
             if (this.mode = "value" ? c = "," : c = ":")
@@ -152,7 +152,7 @@ LSON_Unserialize( _text )
             else if (this.mode = "value" && c = "}")
                 this.mode := "end"
             else
-                throw "unexpected character in object: '" c "'"
+                throw "Expected object " (this.mode = "key" ? "key/termination" : "value") ", got: '" c  "' at position " pos
         
         if (this.mode = "end")
         {
