@@ -61,7 +61,7 @@ LSON_GetObj( obj, seps, lobj, tpos )
 
 LSON_Unserialize( _text ) 
 {
-    tree := []
+    tree  := []
     stack := []
     _text := RegExReplace(_text, "^\s++") ; remove leading whitespace
     pos := 1
@@ -76,8 +76,8 @@ LSON_Unserialize( _text )
             , idx: 0
             , key: ""
             , mode: c = "[" ? "value" : "key" }
-    stack.insert(this)
-    tree.insert(stack[1,"tpos"], &stack[1,"ref"])
+    stack.insert(ret)
+    tree.insert(stack[1,"tpos"], &stack[1].ref)
     
     while stack.maxindex() && ++pos <= StrLen(_text)
     {
@@ -89,11 +89,11 @@ LSON_Unserialize( _text )
         this := stack[stack.maxindex()]
         this.idx++
         
-        if RegExMatch(text, "^""(?:[^""]|"""")++""", token) ;string. TODO: deref, de-quote token string
-            pos += StrLen(token), tokentype := "string"
+        if RegExMatch(text, "^""(?:[^""]|"""")+""", token) ;string. TODO: deref, de-quote token string
+            pos += StrLen(token), token := LSON_UnNormalize(token), tokentype := "string"
         else if RegExMatch(text, "^\d++(?:\.\d++)?|0x[\da-fA-F]++", token) ; number. TODO: e-style numbers
             pos += StrLen(token), tokentype := "number"
-        else if RegExmatch(text, "^[\w#@$]++(?:\(\))?", token) ;identifier/function
+        else if RegExmatch(text, "^[\w#@$]++(?:\(\))?", token) ;identifier/function. TODO: deref function objects
             pos += Strlen(token), tokentype := "identifier"
         ; else if ;object reference
         else if InStr("[{", c)
@@ -108,10 +108,9 @@ LSON_Unserialize( _text )
             tokentype := "object"
             tree.insert(new_this.tpos, new_this.ref)
             stack.insert(new_this)
-            pos++
         }
         else
-            throw Expected token, got: "%c%"
+            throw "Expected token, got: '" c "' at position " pos
         
         if (this.type = "arr")
             this.ref[this.idx] := token
@@ -120,35 +119,38 @@ LSON_Unserialize( _text )
         else
             this.ref[this.key] := token, this.key := ""
         
-        while InStr(" `t`r`n", SubStr(text, pos, 1)) ;trim whitespace after token
-            pos++
-            
+        while pos < StrLen(_text) && InStr(" `t`r`n", SubStr(_text, pos, 1)) ;trim whitespace after token
+            msgbox % "trimming whitespace " ++pos
+        
         if (tokentype = "object")
             continue
         
         c := SubStr(_text, pos, 1)
-        pos++
         
-        if (this.type = "arr")
+        ; msgbox % text "`n`ntoken: " token "`ntype: " tokentype "`nchar after token: " c " at " pos "`nobj: " IsObject(this.ref) ": " lson(this.ref)
+        
+        if (this.type = "arr") {
             if (c = "]")
                 this.mode := "end"
             else if (c != ",")
-                throw unexpected character: "%c%"
+                throw "unexpected character in array: '" c "'"
+        }
         else
             if (this.mode = "value" ? c = "," : c = ":")
                 this.mode := this.mode = "value" ? "key" : "value"
             else if (this.mode = "value" && c = "}")
                 this.mode := "end"
             else
-                throw unexpected character: "%c%"
+                throw "unexpected character in object: '" c "'"
         
         if (this.mode = "end")
         {
-            stack.remove()
-            if stack.maxindex()
+            old_this := stack.remove()
+            if (stack.maxindex())
             {
                 this := stack[stack.maxindex()]
-                this.ref[this.type="arr"?this.idx:this.mode="key"?"key":this.key] := token
+                this.ref[this.type="arr"?this.idx:this.mode="key"?"key":this.key] := old_this.ref
+                pos++
             }
         }
     }
@@ -162,6 +164,7 @@ LSON_Normalize(text)
     text := RegExReplace(text,"`r","``r")
     text := RegExReplace(text,"`n","``n")
     text := RegExReplace(text,"`t","``t")
+    text := RegExReplace(text,"""","""""")
     while RegExMatch(text, "[\x0-\x19]", char) ; change control characters
         text := RegExReplace(text, char, "``x" Format("{1:02X}", asc(char)))
     return """" text """"
@@ -170,6 +173,7 @@ LSON_Normalize(text)
 LSON_UnNormalize(text)
 {
     text := SubStr(text, 2, -1) ;strip outside quotes
+    text := RegExReplace(text,"""""", """")
     while RegExMatch(text, "(?<!``)(````)*+``x(..)", char)
         text := RegExReplace(text, "(?<!``)(````)*+``x" char2, "$1" Chr("0x" char2))
     Transform, text, Deref, %text%

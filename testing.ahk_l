@@ -1,0 +1,14 @@
+; testing.ahk_l
+#Include LSON.ahk
+#SingleInstance, force
+
+text1 = [1,2,3,"""abc",5]
+text2 = [1,  2  ,3  ]
+text3 = `   [  1,2  ]  `
+text4 = {abc:"def"}
+text5 = [1,2,["a","b"],3]
+text6 = ["abc""",[1,"de"],{ ky: 123}]
+
+x := LSON(text6)
+
+msgbox % "_" LSON(x) "_`n" x[4]
