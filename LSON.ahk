@@ -64,7 +64,7 @@ LSON_Deserialize( _text )
         this := stack[stack.maxindex()]
         this.idx++
         
-        if RegExMatch(text, "^""(?:[^""]|"""")+""", token) ;string
+        if RegExMatch(text, "^""(?:[^""\\]|\\.)+""", token) ;string
             pos += StrLen(token), token := LSON_UnNormalize(token), tokentype := "string"
         else if RegExMatch(text, "^\d++(?:\.\d++(?:e[\+\-]?\d++)?)?|0x[\da-fA-F]++", token) ; number
             pos += StrLen(token), token += 0, tokentype := "number"
@@ -139,26 +139,32 @@ LSON_Deserialize( _text )
 
 LSON_Normalize(text) 
 {
-    text := RegExReplace(text,"``","````")
-    text := RegExReplace(text,"`%","```%")
-    text := RegExReplace(text,"`r","``r")
-    text := RegExReplace(text,"`n","``n")
-    text := RegExReplace(text,"`t","``t")
-    text := RegExReplace(text,"`f","``f")
-    text := RegExReplace(text,"`b","``b")
-    text := RegExReplace(text,"""","""""")
-    while RegExMatch(text, "[\x0-\x19\x22]", char) ; change control characters
-        text := RegExReplace(text, char, "``x" Format("{1:04X}", asc(char)))
+    text := RegExReplace(text,"\\","\\")
+    text := RegExReplace(text,"/","\/")
+    text := RegExReplace(text,"`b","\b")
+    text := RegExReplace(text,"`f","\f")
+    text := RegExReplace(text,"`n","\n")
+    text := RegExReplace(text,"`r","\r")
+    text := RegExReplace(text,"`t","\t")
+    text := RegExReplace(text,"""","\\""")
+    while RegExMatch(text, "[\x0-\x19]", char)
+        text := RegExReplace(text, char, "\u" Format("{1:04X}", asc(char)))
     return """" text """"
 }
 
 LSON_UnNormalize(text)
 {
     text := SubStr(text, 2, -1) ;strip outside quotes
-    text := RegExReplace(text,"""""", """") ;un-double quotes
-    while RegExMatch(text, "(?<!``)(````)*+``x(..)", char)
-        text := RegExReplace(text, "(?<!``)(````)*+``x" char2, "$1" Chr("0x" char2))
-    Transform, text, Deref, %text%
+    while RegExMatch(text, "(?<!\\)((?:\\\\)*+)\\u(....)", char)
+        text := RegExReplace(text, "(?<!\\)((?:\\\\)*+)\\u" char2, "$1" Chr("0x" char2))
+    text := RegExReplace(text,"\\""", """") ;un-escape quotes
+    text := RegExReplace(text,"\\t","`t")
+    text := RegExReplace(text,"\\r","`r")
+    text := RegExReplace(text,"\\n","`n")
+    text := RegExReplace(text,"\\f","`f")
+    text := RegExReplace(text,"\\b","`b")
+    text := RegExReplace(text,"\\/","/")
+    text := RegExReplace(text,"\\\\","\")
     return text
 }
 
