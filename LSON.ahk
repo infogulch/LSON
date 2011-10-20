@@ -12,7 +12,7 @@
 
 LSON( obj_text, seps = "" )
 {
-    return IsObject(obj_text) ? LSON_Serialize(obj_text, seps) : LSON_Unserialize(obj_text)
+    return IsObject(obj_text) ? LSON_Serialize(obj_text, seps) : LSON_Deserialize(obj_text)
 }
 
 LSON_Serialize( obj, seps = "", lobj = "", tpos = "" ) 
@@ -59,7 +59,7 @@ LSON_GetObj( obj, seps, lobj, tpos )
     return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, seps.clone(), lobj, tpos)
 }
 
-LSON_Unserialize( _text ) 
+LSON_Deserialize( _text ) 
 {
     tree  := []
     stack := []
@@ -70,17 +70,11 @@ LSON_Unserialize( _text )
     if !InStr("[{",c)
         throw "object not recognized"
     
-    ret  := { type: c = "[" ? "arr" : "obj"
-            , tpos: "/"
-            , ref: Object()
-            , idx: 0
-            , key: ""
-            , mode: c = "[" ? "value" : "key" }
+    ret  := { type: c = "[" ? "arr" : "obj" , tpos: "/" , ref: Object() , idx: 0 , key: "" , mode: c = "[" ? "value" : "key" }
     stack.insert(ret)
     tree.insert(stack[1].tpos, &stack[1].ref)
     
-    while stack.maxindex() && ++pos <= StrLen(_text)
-    {
+    while stack.maxindex() && ++pos <= StrLen(_text) {
         c := SubStr(_text, pos, 1)
         if InStr(" `t`r`n", c) ;whitespace
             continue
@@ -107,8 +101,7 @@ LSON_Unserialize( _text )
                 throw "Self-reference not found: " token " at position " (pos-StrLen(token))
             token := tree[token]
         }
-        else if InStr("[{", c)
-        {
+        else if InStr("[{", c) {
             new_this := { type: c = "[" ? "arr" : "obj"
                         , tpos: (this.tpos!="/"?"/":"") this.idx (this.mode="key"?"k":"")
                         , ref: Object()
@@ -137,9 +130,6 @@ LSON_Unserialize( _text )
             continue
         
         c := SubStr(_text, pos, 1)
-        
-        ; msgbox % text "`n`ntoken: " token "`ntype: " tokentype "`nchar after token: " c " at " pos "`nobj: " IsObject(this.ref) ": " lson(this.ref)
-        
         if (this.type = "arr") {
             if (c = "]")
                 this.mode := "end"
@@ -154,11 +144,9 @@ LSON_Unserialize( _text )
             else
                 throw "Expected object " (this.mode = "key" ? "key/termination" : "value") ", got: '" c  "' at position " pos
         
-        if (this.mode = "end")
-        {
+        if (this.mode = "end") {
             old_this := stack.remove()
-            if (stack.maxindex())
-            {
+            if (stack.maxindex()) {
                 this := stack[stack.maxindex()]
                 this.ref[this.type="arr"?this.idx:this.mode="key"?"key":this.key] := old_this.ref
                 pos++
@@ -175,16 +163,18 @@ LSON_Normalize(text)
     text := RegExReplace(text,"`r","``r")
     text := RegExReplace(text,"`n","``n")
     text := RegExReplace(text,"`t","``t")
+    text := RegExReplace(text,"`f","``f")
+    text := RegExReplace(text,"`b","``b")
     text := RegExReplace(text,"""","""""")
-    while RegExMatch(text, "[\x0-\x19]", char) ; change control characters
-        text := RegExReplace(text, char, "``x" Format("{1:02X}", asc(char)))
+    while RegExMatch(text, "[\x0-\x19\x22]", char) ; change control characters
+        text := RegExReplace(text, char, "``x" Format("{1:04X}", asc(char)))
     return """" text """"
 }
 
 LSON_UnNormalize(text)
 {
     text := SubStr(text, 2, -1) ;strip outside quotes
-    text := RegExReplace(text,"""""", """")
+    text := RegExReplace(text,"""""", """") ;un-double quotes
     while RegExMatch(text, "(?<!``)(````)*+``x(..)", char)
         text := RegExReplace(text, "(?<!``)(````)*+``x" char2, "$1" Chr("0x" char2))
     Transform, text, Deref, %text%
