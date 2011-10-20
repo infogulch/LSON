@@ -2,16 +2,16 @@
 #Include LSON.ahk
 #SingleInstance, force
 
-text1 = [1,2,3,"""abc",5]
+text1 = [1,2,3,"\"abc",5]
 text2 = [1,  2  ,3  ]
 text3 = `   [  1,2  ]  `
 text4 = { abc:"def"}
 text5 = [1,2,["a","b"],3]
-text6 = ["abc""",[1,"de"],{ ky: 123}]
+text6 = ["abc\"",[1,"de"],{ ky: 123}]
 text7 = [123,456,1.0e8]
 
 loop 7
 {
     x := LSON(text%A_Index%)
-    msgbox, , Parsing #%A_Index%, % LSON(x)
+    msgbox, , Parsing #%A_Index%, % LSON(x) "`n" x[4]
 }

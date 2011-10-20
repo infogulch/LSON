@@ -68,6 +68,8 @@ LSON_Deserialize( _text )
             pos += StrLen(token), token := LSON_UnNormalize(token), tokentype := "string"
         else if RegExMatch(text, "^\d++(?:\.\d++(?:e[\+\-]?\d++)?)?|0x[\da-fA-F]++", token) ; number
             pos += StrLen(token), token += 0, tokentype := "number"
+        else if (this.mode = "key") && RegExmatch(text, "^[\w#@$]++", token) ;identifier
+            pos += StrLen(token), tokentype := "identifier"
         else if RegExMatch(text, "^(?!\.)[\w#@$\.]+(?<!\.)(?=\(\))", token) { ;function
             pos += StrLen(token)+2, tokentype := "function"
             if !IsFunc(token)
