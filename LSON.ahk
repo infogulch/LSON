@@ -24,21 +24,12 @@ LSON_Serialize( obj, lobj = "", tpos = "" )
         lobj := Object(&obj, tpos) ; this root object is static through all recursion
     for k,v in obj
     {
-        retObj .= sep
-        if IsObject(k)
-            retObj .= LSON_GetObj(k, lobj, tpos A_Index "k")
-        else
-            retObj .= k ~= "^[a-zA-Z0-9#_@$]+$" ? k : LSON_Normalize(k)
-        retObj .= ": "
-        if IsObject(v)
-            v := LSON_GetObj(v, lobj, tpos A_Index)
-        else
-            v := v+0 != "" ? v : LSON_Normalize(v)
-        retObj .= v
+        retObj .= ", " (IsObject(k) ? LSON_GetObj(k, lobj, tpos A_Index "k") : LSON_Normalize(k)) ": "
+               . v :=  (IsObject(v) ? LSON_GetObj(v, lobj, tpos A_Index)     : (v+0 != "" ? v : LSON_Normalize(v)))
         if (array := array && (k + 0 != "") && (k == A_Index))
-            retArr .= sep v
+            retArr .= ", " v
     }
-    return array ? "[" SubStr(retArr, 1 + StrLen(sep)) "]" : "{" SubStr(retObj, 1 + StrLen(sep)) "}"
+    return array ? "[" SubStr(retArr,3) "]" : "{" SubStr(retObj,3) "}"
 }
 
 LSON_GetObj( obj, lobj, tpos ) 
