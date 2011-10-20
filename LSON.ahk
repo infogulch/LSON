@@ -10,53 +10,43 @@
 ; /4k     refers to the root's fourth index *key* (object-key)
 ; /1/5k/3 refers to: root first index value -> fifth index key -> third index value
 
-LSON( obj_text, seps = "" )
+;TODO: drop support for ahk-objects, and change all escape sequences to \
+
+LSON( obj_text )
 {
-    return IsObject(obj_text) ? LSON_Serialize(obj_text, seps) : LSON_Deserialize(obj_text)
+    return IsObject(obj_text) ? LSON_Serialize(obj_text) : LSON_Deserialize(obj_text)
 }
 
-LSON_Serialize( obj, seps = "", lobj = "", tpos = "" ) 
+LSON_Serialize( obj, lobj = "", tpos = "" ) 
 {
-    array := True
-    
-    tpos .= "/"
+    array := True,  tpos .= "/", sep := ", "
     if !IsObject(lobj)
-        lobj := Object("r" &obj, tpos) ; this root object is static through all recursion
-    sep := seps._maxindex() ? seps.remove(1) : ", "
-    
+        lobj := Object(&obj, tpos) ; this root object is static through all recursion
     for k,v in obj
     {
         retObj .= sep
-        
         if IsObject(k)
-            retObj .= LSON_GetObj(k, seps.clone(), lobj, tpos A_Index "k")
+            retObj .= LSON_GetObj(k, lobj, tpos A_Index "k")
         else
             retObj .= k ~= "^[a-zA-Z0-9#_@$]+$" ? k : LSON_Normalize(k)
         retObj .= ": "
-        
         if IsObject(v)
-            v := LSON_GetObj(v, seps.clone(), lobj, tpos A_Index)
+            v := LSON_GetObj(v, lobj, tpos A_Index)
         else
             v := v+0 != "" ? v : LSON_Normalize(v)
-        
         retObj .= v
-        
-        if (array := array && (k + 0 != "") && (k == A_Index) && (k == Abs(k)) && (k == Floor(k)))
+        if (array := array && (k + 0 != "") && (k == A_Index))
             retArr .= sep v
     }
-    if array
-        ret := "[" SubStr(retArr, 1 + StrLen(sep)) "]"
-    else
-        ret := "{" SubStr(retObj, 1 + StrLen(sep)) "}"
-    return ret
+    return array ? "[" SubStr(retArr, 1 + StrLen(sep)) "]" : "{" SubStr(retObj, 1 + StrLen(sep)) "}"
 }
 
-LSON_GetObj( obj, seps, lobj, tpos ) 
+LSON_GetObj( obj, lobj, tpos ) 
 {
-    if (lobj.HasKey("r" &obj))
-        return lobj["r" &obj]
-    lobj.insert("r" &obj, tpos)
-    return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, seps.clone(), lobj, tpos)
+    if (lobj.HasKey(&obj))
+        return lobj[&obj]
+    lobj[&obj] := tpos
+    return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, lobj, tpos)
 }
 
 LSON_Deserialize( _text ) 
