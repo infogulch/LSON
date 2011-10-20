@@ -61,7 +61,7 @@ LSON_Deserialize( _text )
             continue
         
         text := SubStr(_text, pos)
-        this := stack[stack.maxindex()]
+        this := stack[stackidx := stack.maxindex()]
         this.idx++
         
         if RegExMatch(text, "^""(?:[^""\\]|\\.)+""", token) ;string
@@ -123,14 +123,8 @@ LSON_Deserialize( _text )
             else
                 throw "Expected object " (this.mode = "key" ? "key/termination" : "value") ", got: '" c  "' at position " pos
         
-        if (this.mode = "end") {
-            old_this := stack.remove()
-            if (stack.maxindex()) {
-                this := stack[stack.maxindex()]
-                this.ref[this.type="arr"?this.idx:this.mode="key"?"key":this.key] := old_this.ref
-                pos++
-            }
-        }
+        if (this.mode = "end")
+            stack.remove(stackidx), pos++
     }
     return ret.ref
 }
@@ -144,7 +138,7 @@ LSON_Normalize(text)
     text := RegExReplace(text,"`n","\n")
     text := RegExReplace(text,"`r","\r")
     text := RegExReplace(text,"`t","\t")
-    text := RegExReplace(text,"""","\\""")
+    text := RegExReplace(text,"""","\""")
     while RegExMatch(text, "[\x0-\x19]", char)
         text := RegExReplace(text, char, "\u" Format("{1:04X}", asc(char)))
     return """" text """"
