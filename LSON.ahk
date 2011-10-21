@@ -42,29 +42,26 @@ LSON_GetObj( obj, lobj, tpos )
 LSON_Deserialize( _text, lobj = "", tpos = "" ) 
 {
     _text := RegExReplace(_text, "^\s++") ; remove leading whitespace
-    pos := 1
-    
     c := SubStr(_text, 1, 1)
     if !InStr("[{",c)
         throw "object not recognized"
     type := c = "[" ? "arr" : "obj"
-    mode      := c = "[" ? "value" : "key"
-    ret       := Object()
-    idx       := 1
-    keytoken  := ""
-    complete  := false
+    pos  := 1
+    mode := c = "[" ? "value" : "key"
+    ret  := Object()
+    idx  := 1
+    keytoken := ""
+    complete := false
     
     if !IsObject(lobj)
-        tpos      := "/", lobj := Object()
+        tpos := "/", lobj := Object()
     lobj[tpos] := &ret
     
     while ++pos <= StrLen(_text) {
         c := SubStr(_text, pos, 1)
         if InStr(" `t`r`n", c) ;whitespace
             continue
-        
         text := SubStr(_text, pos)
-        
         if RegExMatch(text, "^""(?:[^""\\]|\\.)+""", token) ;string
             pos += StrLen(token), token := LSON_UnNormalize(token), tokentype := "string"
         else if RegExMatch(text, "^\d++(?:\.\d++(?:e[\+\-]?\d++)?)?|0x[\da-fA-F]++", token) ; number
@@ -100,11 +97,7 @@ LSON_Deserialize( _text, lobj = "", tpos = "" )
         while pos < StrLen(_text) && InStr(" `t`r`n", SubStr(_text, pos, 1)) ;trim whitespace after token
             ++pos
         
-        cb := c
         c := SubStr(_text, pos, 1)
-        
-        ; msgbox % text "`n`ntoken: " token "`ntype: " tokentype "`nchar after token: " c " at " pos "`nchar before token: " cb "`nobj: " lson(ret) "`nmode: " mode
-        
         if (type = "arr")
             if (c = "]")
                 mode := "end"

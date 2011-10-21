@@ -23,4 +23,4 @@ loop, parse, list, `,, %A_Space%%A_Tab%
     msgbox, , Parsing #%A_LoopField%, % LSON(x) "`n" x[4]
 }
 
-; msgbox % text "`n`ntoken: " token "`ntype: " tokentype "`nchar after token: " c " at " pos "`nchar at token: " cp "`nobj: " IsObject(this.ref) ": " lson(this.ref) "`nmode: " this.mode
+; msgbox % text "`n`ntoken: " token "`ntype: " tokentype "`nchar after token: " c " at " pos "`nchar before token: " cb "`nobj: " lson(ret) "`nmode: " mode
