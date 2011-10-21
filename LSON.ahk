@@ -12,8 +12,7 @@
 
 ;TODO: drop support for ahk-objects, and change all escape sequences to \
 
-LSON( obj_text )
-{
+LSON( obj_text ) {
     return IsObject(obj_text) ? LSON_Serialize(obj_text) : LSON_Deserialize(obj_text)
 }
 
@@ -26,7 +25,7 @@ LSON_Serialize( obj, lobj = "", tpos = "" )
     {
         retObj .= ", " (IsObject(k) ? LSON_GetObj(k, lobj, tpos A_Index "k") : LSON_Normalize(k)) ": "
                . v :=  (IsObject(v) ? LSON_GetObj(v, lobj, tpos A_Index)     : (v+0 != "" ? v : LSON_Normalize(v)))
-        if (array := array && (k + 0 != "") && (k == A_Index))
+        if (array := array && k == A_Index)
             retArr .= ", " v
     }
     return array ? "[" SubStr(retArr,3) "]" : "{" SubStr(retObj,3) "}"
@@ -40,95 +39,98 @@ LSON_GetObj( obj, lobj, tpos )
     return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, lobj, tpos)
 }
 
-LSON_Deserialize( _text ) 
+LSON_Deserialize( _text, lobj = "", tpos = "" ) 
 {
-    tree  := []
-    stack := []
     _text := RegExReplace(_text, "^\s++") ; remove leading whitespace
     pos := 1
     
     c := SubStr(_text, 1, 1)
     if !InStr("[{",c)
         throw "object not recognized"
+    type := c = "[" ? "arr" : "obj"
+    mode      := c = "[" ? "value" : "key"
+    ret       := Object()
+    idx       := 1
+    keytoken  := ""
+    complete  := false
     
-    ret  := { type: c = "[" ? "arr" : "obj" , tpos: "/" , ref: Object() , idx: 0 , key: "" , mode: c = "[" ? "value" : "key" }
-    stack.insert(ret)
-    tree.insert(stack[1].tpos, &stack[1].ref)
+    if !IsObject(lobj)
+        tpos      := "/", lobj := Object()
+    lobj[tpos] := &ret
     
-    while stack.maxindex() && ++pos <= StrLen(_text) {
+    while ++pos <= StrLen(_text) {
         c := SubStr(_text, pos, 1)
         if InStr(" `t`r`n", c) ;whitespace
             continue
         
         text := SubStr(_text, pos)
-        this := stack[stackidx := stack.maxindex()]
-        this.idx++
         
         if RegExMatch(text, "^""(?:[^""\\]|\\.)+""", token) ;string
             pos += StrLen(token), token := LSON_UnNormalize(token), tokentype := "string"
         else if RegExMatch(text, "^\d++(?:\.\d++(?:e[\+\-]?\d++)?)?|0x[\da-fA-F]++", token) ; number
-            pos += StrLen(token), token += 0, tokentype := "number"
-        else if (this.mode = "key") && RegExmatch(text, "^[\w#@$]++", token) ;identifier
-            pos += StrLen(token), tokentype := "identifier"
+            pos += StrLen(token), token := token+0, tokentype := "number"
+        else if (mode = "key") && RegExmatch(text, "^[\w#@$]++", token) ;identifier
+            pos += StrLen(token), token := token, tokentype := "identifier"
         else if RegExMatch(text, "^(?!\.)[\w#@$\.]+(?<!\.)(?=\(\))", token) { ;function
             pos += StrLen(token)+2, tokentype := "function"
             if !IsFunc(token)
                 throw "Function not found: " token "() at position " (pos-StrLen(token)-2)
             token := Func(token)
         }
-        else if RegExMatch(text, "^(?:/\d+k?+)++", token) { ; self-reference
+        else if RegExMatch(text, "^(?:\/(?:\d+k?)?)++", token) { ; self-reference
             pos += StrLen(token), tokentype := "reference"
-            if !tree.HasKey(token)
+            if !lobj.HasKey(token)
                 throw "Self-reference not found: " token " at position " (pos-StrLen(token))
-            token := tree[token]
+            token := Object(lobj[token])
         }
-        else if InStr("[{", c) {
-            new_this := { type: c = "[" ? "arr" : "obj"
-                        , tpos: (this.tpos!="/"?"/":"") this.idx (this.mode="key"?"k":"")
-                        , ref: Object()
-                        , idx: 0
-                        , key: ""
-                        , mode: c = "[" ? "value" : "key" }
-            token := new_this.ref
-            tokentype := "object"
-            tree.insert(new_this.tpos, new_this.ref)
-            stack.insert(new_this)
-        }
+        else if InStr("[{", c)
+            token := LSON_Deserialize(text, lobj, tpos (tpos!="/"?"/":"") idx (mode="key"?"k":""))
+            , pos += ErrorLevel
+            , tokentype := object
         else
             throw "Expected token, got: '" c "' at position " pos
         
-        if (this.type = "arr")
-            this.ref[this.idx] := token
-        else if (this.mode = "key")
-            this.key := token
+        if (type = "arr")
+            ret[idx] := token
+        else if (mode = "key")
+            keytoken := token
         else
-            this.ref[this.key] := token, this.key := ""
+            ret[keytoken] := token, keytoken := ""
         
         while pos < StrLen(_text) && InStr(" `t`r`n", SubStr(_text, pos, 1)) ;trim whitespace after token
             ++pos
         
-        if (tokentype = "object")
-            continue
-        
+        cb := c
         c := SubStr(_text, pos, 1)
-        if (this.type = "arr") {
-            if (c = "]")
-                this.mode := "end"
-            else if (c != ",")
-                throw "Expected array separator/termination, got: '" c  "' at position " pos
-        }
-        else
-            if (this.mode = "value" ? c = "," : c = ":")
-                this.mode := this.mode = "value" ? "key" : "value"
-            else if (this.mode = "value" && c = "}")
-                this.mode := "end"
-            else
-                throw "Expected object " (this.mode = "key" ? "key/termination" : "value") ", got: '" c  "' at position " pos
         
-        if (this.mode = "end")
-            stack.remove(stackidx), pos++
+        ; msgbox % text "`n`ntoken: " token "`ntype: " tokentype "`nchar after token: " c " at " pos "`nchar before token: " cb "`nobj: " lson(ret) "`nmode: " mode
+        
+        if (type = "arr")
+            if (c = "]")
+                mode := "end"
+            else if (c = ",")
+                idx++
+            else
+                throw "Expected array separator/termination, got: '" c  "' at position " pos
+        else if (type = "obj")
+            if (mode = "value" ? c = "," : c = ":")
+                if (mode = "value")
+                    mode := "key", idx++
+                else
+                    mode := "value"
+            else if (mode = "value" && c = "}")
+                mode := "end"
+            else
+                throw "Expected object " (mode = "key" ? "key/termination" : "value") ", got: '" c  "' at position " pos
+        
+        if (mode = "end") {
+            complete := True
+            break
+        }
     }
-    return ret.ref
+    if !complete
+        throw "Unexpected end of string"
+    return ret, ErrorLevel := pos
 }
 
 LSON_Normalize(text) 

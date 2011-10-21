@@ -9,9 +9,18 @@ text4 = { abc:"def"}
 text5 = [1,2,["a","b"],3]
 text6 = ["abc\"",[1,"de"],{ ky: 123}]
 text7 = [123,456,1.0e8]
+text8 = {[1,2,3]: "abc"}
+text9 = {[1,2,3]: "abc", { 1:"a",5:"b","123.x":"d" }: [1,2,3] }
+text10 = { { a:"a",{ 123:"cde"}:"test"}: ["a","b",{["x"]:"y"}], "x": [{ 3:"three","IV":{ 4:"four"} }]}
+text11 = { { { Key: "Value"}: "Value1"}: "Value2"}
+text12 = [1,2,/]
 
-loop 7
+list := 12 ;"1,2,3,4,5,6,7,8,9,10,11"
+
+loop, parse, list, `,, %A_Space%%A_Tab%
 {
-    x := LSON(text%A_Index%)
-    msgbox, , Parsing #%A_Index%, % LSON(x) "`n" x[4]
+    x := LSON(text%A_LoopField%)
+    msgbox, , Parsing #%A_LoopField%, % LSON(x) "`n" x[4]
 }
+
+; msgbox % text "`n`ntoken: " token "`ntype: " tokentype "`nchar after token: " c " at " pos "`nchar at token: " cp "`nobj: " IsObject(this.ref) ": " lson(this.ref) "`nmode: " this.mode
