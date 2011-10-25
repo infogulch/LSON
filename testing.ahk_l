@@ -11,16 +11,33 @@ text6 = ["abc\"",[1,"de"],{ ky: 123}]
 text7 = [123,456,1.0e8]
 text8 = {[1,2,3]: "abc"}
 text9 = {[1,2,3]: "abc", { 1:"a",5:"b","123.x":"d" }: [1,2,3] }
-text10 = { { a:"a",{ 123:"cde"}:"test"}: ["a","b",{["x"]:"y"}], "x": [{ 3:"three","IV":{ 4:"four"} }]}
+text10 = { { a:"a",{ 123:"cde"}:"test"}: ["a","b",{["x"]:"y"}], "x": [{ 3:"three","IV":{ 4:"four"} }]} ;
 text11 = { { { Key: "Value"}: "Value1"}: "Value2"}
 text12 = [1,2,/]
+text13 = ["a",2,"III",{ /: "test" }, { repeat: /4 }, { ["obj"]: "test" }, /6/1k]
+text14 = ["a","b",[1,2] ;error: Unexpected end of string
+text15 = [/2,"abc",123] ;error: Self-reference not found: /2 at position 2
+text16 = x ;error: object not recognized
+text17 = []
+text18 = {}
 
-list := 12 ;"1,2,3,4,5,6,7,8,9,10,11"
+list := expand("1-18")
 
 loop, parse, list, `,, %A_Space%%A_Tab%
 {
-    x := LSON(text%A_LoopField%)
-    msgbox, , Parsing #%A_LoopField%, % LSON(x) "`n" x[4]
+    try 
+        y := LSON(LSON(text%A_LoopField%))
+    catch e
+        y := e
+    msgbox, , Parsing #%A_LoopField%, %y%
 }
 
 ; msgbox % text "`n`ntoken: " token "`ntype: " tokentype "`nchar after token: " c " at " pos "`nchar before token: " cb "`nobj: " lson(ret) "`nmode: " mode
+
+expand( range ) {
+    p := 0
+    while p := RegExMatch(range, "\s*(-?\d++)(?:\s*-\s*(-?\d++))?", f, p+1+StrLen(f))
+        loop % (f2 ? f2-f1 : 0) + 1
+            ret .= "," (A_Index-1) + f1
+    return SubStr(ret, 2)
+}

@@ -45,24 +45,26 @@ LSON_Deserialize( _text, lobj = "", tpos = "" )
     c := SubStr(_text, 1, 1)
     if !InStr("[{",c)
         throw "object not recognized"
-    type := c = "[" ? "arr" : "obj"
-    pos  := 1
-    mode := c = "[" ? "value" : "key"
-    ret  := Object()
-    idx  := 1
-    keytoken := ""
-    complete := false
+    type := c = "[" ? "arr" : "obj", mode := c = "[" ? "value" : "key"
+    ret  := Object(), pos := 1, idx := 1, keytoken := "", complete := false
     
     if !IsObject(lobj)
         tpos := "/", lobj := Object()
     lobj[tpos] := &ret
     
+    while pos+1 < StrLen(_text) && InStr(" `t`r`n", SubStr(_text, pos+1, 1)) ;trim whitespace
+        ++pos
+    if SubStr(_text, pos+1, 1) = (type = "arr" ? "]" : "}") ;end of object with no tokens
+        complete := true, _text := "" ;skip the loop
+    
     while ++pos <= StrLen(_text) {
         c := SubStr(_text, pos, 1)
+        if (c == "")
+            break
         if InStr(" `t`r`n", c) ;whitespace
             continue
         text := SubStr(_text, pos)
-        if RegExMatch(text, "^""(?:[^""\\]|\\.)+""", token) ;string
+        if RegExMatch(text, "^""(?:\\.|[^""\\])*+""", token) ;string
             pos += StrLen(token), token := LSON_UnNormalize(token), tokentype := "string"
         else if RegExMatch(text, "^\d++(?:\.\d++(?:e[\+\-]?\d++)?)?|0x[\da-fA-F]++", token) ; number
             pos += StrLen(token), token := token+0, tokentype := "number"
@@ -82,8 +84,7 @@ LSON_Deserialize( _text, lobj = "", tpos = "" )
         }
         else if InStr("[{", c)
             token := LSON_Deserialize(text, lobj, tpos (tpos!="/"?"/":"") idx (mode="key"?"k":""))
-            , pos += ErrorLevel
-            , tokentype := object
+            , pos += ErrorLevel, tokentype := object
         else
             throw "Expected token, got: '" c "' at position " pos
         
@@ -98,6 +99,8 @@ LSON_Deserialize( _text, lobj = "", tpos = "" )
             ++pos
         
         c := SubStr(_text, pos, 1)
+        if (c == "")
+            break
         if (type = "arr")
             if (c = "]")
                 mode := "end"
@@ -157,7 +160,7 @@ LSON_UnNormalize(text)
     return text
 }
 
-; These will not be used until a reliable method of determining whether an object contains binary data is found
+; These will not be used until a reliable method of determining whether an object's value contains binary data is found
 LSON_BinToString(obj, k, len = "")
 {
     vsz := len ? len*(1+A_IsUnicode) : obj.GetCapacity(k)
@@ -170,11 +173,11 @@ LSON_BinToString(obj, k, len = "")
     return out
 }
 
-LSON_StringToBin(str, obj, k)
+LSON_StringToBin(str, obj, k, encoding = "hex")
 {
-    VarSetCapacity(sz, 4)
-    DllCall("Crypt32.dll\CryptStringToBinary", "ptr", &str, "UInt", 0, "UInt", 0xC, "ptr",  0, "ptr", &sz, "ptr", 0, "ptr", 0, "CDecl")
+    VarSetCapacity(sz, 4, 0)
+    type := encoding = "hex" ? 0xC : encoding = "base64" ? 0x6 : 0
+    DllCall("Crypt32.dll\CryptStringToBinary", "ptr", &str, "UInt", 0, "UInt", type, "ptr",  0, "ptr", &sz, "ptr", 0, "ptr", 0, "CDecl")
     obj.SetCapacity(k, NumGet(sz))
-    pk := obj.GetAddress(k)
-    DllCall("Crypt32.dll\CryptStringToBinary", "ptr", &str, "UInt", 0, "UInt", 0xC, "ptr", pk, "ptr", &sz, "ptr", 0, "ptr", 0, "CDecl")
+    DllCall("Crypt32.dll\CryptStringToBinary", "ptr", &str, "UInt", 0, "UInt", type, "ptr", obj.GetAddress(k), "ptr", &sz, "ptr", 0, "ptr", 0, "CDecl")
 }
