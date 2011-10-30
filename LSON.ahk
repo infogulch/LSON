@@ -85,6 +85,9 @@ LSON_Deserialize( _text, lobj = "", tpos = "" )
         else if InStr("[{", c)
             token := LSON_Deserialize(text, lobj, tpos (tpos!="/"?"/":"") idx (mode="key"?"k":""))
             , pos += ErrorLevel, tokentype := object
+        else if RegExMatch(text, "^(?:null|true|false)", token)
+            pos += StrLen(token), tokentype := "name"
+            , token := token = "false" ? false : token = "true" ? true : ""
         else
             throw "Expected token, got: '" c "' at position " pos
         
