@@ -8,35 +8,37 @@
 ; /       refers to root itself
 ; /2      refers to the root's second index value
 ; /4k     refers to the root's fourth index *key* (object-key)
-; /1/5k/3 refers to: root first index value -> fifth index key -> third index value
+; /1/5k/3 refers to root first index value -> fifth index key -> third index value
 
-;TODO: drop support for ahk-objects, and change all escape sequences to \
+; TODO: representation of boolean values?
+;       representation of null values?
 
-LSON( obj_text ) {
-    return IsObject(obj_text) ? LSON_Serialize(obj_text) : LSON_Deserialize(obj_text)
+LSON( obj_text, format = false ) {
+    return IsObject(obj_text) ? LSON_Serialize(obj_text, "", "", format) : LSON_Deserialize(obj_text)
 }
 
-LSON_Serialize( obj, lobj = "", tpos = "" ) 
+LSON_Serialize( obj, lobj = "", tpos = "", f = false ) 
 {
     array := True,  tpos .= "/", sep := ", "
     if !IsObject(lobj)
         lobj := Object(&obj, tpos) ; this root object is static through all recursion
     for k,v in obj
     {
-        retObj .= ", " (IsObject(k) ? LSON_GetObj(k, lobj, tpos A_Index "k") : LSON_Normalize(k)) ": "
-               . v :=  (IsObject(v) ? LSON_GetObj(v, lobj, tpos A_Index)     : (v+0 != "" ? v : LSON_Normalize(v)))
+        retObj .= (f ? "`n" : "") ", " (IsObject(k) ? LSON_GetObj(k, lobj, tpos A_Index "k", f) : LSON_Normalize(k)) ": "
+           . v :=                      (IsObject(v) ? LSON_GetObj(v, lobj, tpos A_Index    , f) : (v+0 != "" ? v : LSON_Normalize(v)))
         if (array := array && k == A_Index)
-            retArr .= ", " v
+            retArr .= (f ? "`n" : "") ", " v
     }
-    return array ? "[" SubStr(retArr,3) "]" : "{" SubStr(retObj,3) "}"
+    return array ? "[" SubStr(retArr,3+!!f) "]" : "{" SubStr(retObj,3+!!f) "}"
 }
 
-LSON_GetObj( obj, lobj, tpos ) 
+LSON_GetObj( obj, lobj, tpos, f ) 
 {
     if (lobj.HasKey(&obj))
         return lobj[&obj]
     lobj[&obj] := tpos
-    return IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, lobj, tpos)
+    ret := IsFunc(obj) ? obj.Name "()" : LSON_Serialize(obj, lobj, tpos, f)
+    return f ? RegExReplace(ret, "\n", LSON_Repeat(" ", 4) "$0") : ret
 }
 
 LSON_Deserialize( _text, lobj = "", tpos = "" ) 
@@ -161,6 +163,11 @@ LSON_UnNormalize(text)
     text := RegExReplace(text,"\\/","/")
     text := RegExReplace(text,"\\\\","\")
     return text
+}
+
+LSON_Repeat(c, n) {
+    VarSetCapacity(ret, n, Asc(c))
+    return StrGet(&ret, n, "CP0")
 }
 
 ; These will not be used until a reliable method of determining whether an object's value contains binary data is found
