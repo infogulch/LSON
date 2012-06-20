@@ -71,15 +71,20 @@ result22 = [-1]
 test23 = [5,4,3,2,1,0,-1, -    2, - 3]
 result23 = [5, 4, 3, 2, 1, 0, -1, -2, -3]
 
+test24 = { "\t foo": "\\t" }
+result24 = {"\t foo": "\\t"}
+
+test25 = ["tab \t","no tab \\t","tab \\\t","no tab \\\\t","tab \\\\\t","no tab \\\\\\t"]
+result25 = ["tab \t", "no tab \\t", "tab \\\t", "no tab \\\\t", "tab \\\\\t", "no tab \\\\\\t"]
 
 tests = 1-23 ; which ones to test?
 list := expand(tests)
-showSuccess := false
+showSuccess := true
 
 loop, parse, list, `,, %A_Space%%A_Tab%
 {
     try
-        y := LSON(LSON(test%A_LoopField%))
+        y := LSON(LSON(test%A_LoopField%), true)
     catch e
         y := e
     error := !(y == result%A_LoopField%)

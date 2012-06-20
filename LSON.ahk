@@ -153,12 +153,12 @@ LSON_UnNormalize(text)
     while RegExMatch(text, "(?<!\\)((?:\\\\)*+)\\u(....)", char)
         text := RegExReplace(text, "(?<!\\)((?:\\\\)*+)\\u" char2, "$1" Chr("0x" char2))
     text := RegExReplace(text,"\\""", """") ;un-escape quotes
-    text := RegExReplace(text,"\\t","`t")
-    text := RegExReplace(text,"\\r","`r")
-    text := RegExReplace(text,"\\n","`n")
-    text := RegExReplace(text,"\\f","`f")
-    text := RegExReplace(text,"\\b","`b")
-    text := RegExReplace(text,"\\/","/")
+    text := RegExReplace(text,"(?<!\\)((?:\\\\)*)\\t","$1`t")
+    text := RegExReplace(text,"(?<!\\)((?:\\\\)*)\\r","$1`r")
+    text := RegExReplace(text,"(?<!\\)((?:\\\\)*)\\n","$1`n")
+    text := RegExReplace(text,"(?<!\\)((?:\\\\)*)\\f","$1`f")
+    text := RegExReplace(text,"(?<!\\)((?:\\\\)*)\\b","$1`b")
+    text := RegExReplace(text,"(?<!\\)((?:\\\\)*)\\/","$1/")
     text := RegExReplace(text,"\\\\","\")
     return text
 }
